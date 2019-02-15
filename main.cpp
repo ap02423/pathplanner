@@ -81,6 +81,9 @@ int main() {
         if (event == "telemetry") {
           // j[1] is the data JSON object
           
+		  
+		  int lane = 1;
+		  
           // Main car's localization Data
           double car_x = j[1]["x"];
           double car_y = j[1]["y"];
@@ -121,6 +124,10 @@ int main() {
 		double c = car_speed;
 		double target_velocity = 25.00;
 		vector<double> xy;
+		double s_sum=0.0;
+		double d_sum =0.0;
+		static double last_s=0;
+		static double last_d=0;
 		
 	
 		if (previous_path_x.size() == 0)
@@ -129,7 +136,23 @@ int main() {
 				vector<double> result;
 				vector <double> start;
 				vector <double> end;
-				double T= 4.0; 
+				double T= 2.0; 				
+				
+				
+				
+				//0.02 seconds is when simulator updates
+				
+				for (index=0; index < T/0.02; index++)//20
+				{
+				
+				
+				s_sum=0.0;
+				
+				start.clear();
+				end.clear();
+				result.clear();
+				
+				// polynomial extropolation for s value
 				
 				start.push_back(a);
 				start.push_back(c);
@@ -142,30 +165,60 @@ int main() {
 				
 				result = JMT( start,  end, T);
 				
+				//apply the co-efficients to determine next position
+				
+				for (int i = 0; i < 6 ; i++)
+				{
+					
+					s_sum+= (pow(0.02*(index+1),i)  * result[i]);
+					
+				}
+				
+				
+				//polynomial extraction for d value
+				start.clear();
+				end.clear();
+				result.clear();
+				start.push_back(b);
+				start.push_back(0);
+				start.push_back(0);
+				
+				
+				end.push_back(2+4*lane);
+				end.push_back(0);
+				end.push_back(0);
+				
+				result = JMT( start,  end, T);
+				
 				
 				//0.02 seconds is when simulator updates
 				
-				for (index=0; index < T/0.02; index++)//20
-				{
 				
 				
-				double sum=0.0;
+				d_sum=0.0;
 				
 				//apply the co-efficients to determine next position
 				
 				for (int i = 0; i < 6 ; i++)
 				{
 					
-					sum+= (pow(0.02*(index+1),i)  * result[i]);
+					d_sum+= (pow(0.02*(index+1),i)  * result[i]);
 					
 				}
 				
-				a = sum;
-				b = car_d;
-				xy=getXY(a, b, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+				
+				
+				std::cout <<"The  value of s_sum and d_sum are " << s_sum << " " << d_sum << std::endl;
+				
+				
+				xy=getXY(s_sum, d_sum, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 				next_x_vals.push_back(xy[0]);
 				next_y_vals.push_back(xy[1]);
 				}
+				 
+				last_s = s_sum;
+				last_d = d_sum;
+				//std::cout <<"The last value of s_sum and d_sum are " << last_s << " " << last_d << " " << end_path_s << " " << end_path_d << std::endl;
 				 
 			}
 			else
@@ -184,9 +237,24 @@ int main() {
 				vector<double> result;
 				vector <double> start;
 				vector <double> end;
-				double T= 4.0; //Typically simulator consumes 3 points before next trajectoryis created 
+				double T= 4.0; 
 				
-				a = end_path_s;
+				
+				
+				
+				for (index=0; index < T/0.02 - previous_path_x.size(); index++)
+				{
+			
+				s_sum=0.0;
+				
+				
+				 
+				//a = end_path_s;
+				a = last_s;
+				
+				start.clear();
+				end.clear();
+				result.clear();
 				
 				start.push_back(a);
 				start.push_back(target_velocity/2.237);
@@ -198,38 +266,74 @@ int main() {
 				
 				result = JMT( start,  end, T);
 				
-				
-				for (index=0; index < T/0.02 - previous_path_x.size(); index++)
+				for (int i = 0; i < 6 ; i++)
 				{
-			
-				double sum=0.0;
+					
+					s_sum+= (pow(0.02*(index+1),i)  * result[i]);
+					
+				}
+				
+				//a = sum;
+				//b = car_d;
+				b = last_d;
+
+
+
+
+				
+				
+				start.clear();
+				end.clear();
+				result.clear();
+				
+				start.push_back(b);
+				start.push_back(0);
+				start.push_back(0);
+				
+				
+				end.push_back(2+4*lane);
+				end.push_back(0);
+				end.push_back(0);
+				
+				result = JMT( start,  end, T);
+				
+				
+				//0.02 seconds is when simulator updates
+				
+				
+				
+				d_sum=0.0;
+				
+				//apply the co-efficients to determine next position
 				
 				for (int i = 0; i < 6 ; i++)
 				{
 					
-					sum+= (pow(0.02*(index+1),i)  * result[i]);
+					d_sum+= (pow(0.02*(index+1),i)  * result[i]);
 					
 				}
 				
-				a = sum;
-				b = car_d;
-			
-
-
-
-
-				xy=getXY(a, b, map_waypoints_s, map_waypoints_x, map_waypoints_y);
+				
+				std::cout <<"The value of s_sum and d_sum are " << s_sum << " " << d_sum << std::endl;
+				xy=getXY(s_sum, d_sum, map_waypoints_s, map_waypoints_x, map_waypoints_y);
 				next_x_vals.push_back(xy[0]);
 				next_y_vals.push_back(xy[1]);
-							
+									
+				
+				
 				
 				
 				
 				
 				}
 				
+				
+				
 			//	std::cout << "size" << next_x_vals.size() <<  " " << previous_path_x.size() << std::endl;
 			//	std::cout << "size" << 
+				
+			last_s = s_sum;
+			last_d = d_sum;
 				
 			}
 			
@@ -237,8 +341,8 @@ int main() {
 		   
 		   
 		   
-		   
-		   
+		   std::cout <<"The value of car_d, previous_path_x.size(),next_x_vals.size() is: " << car_d << "   " << previous_path_x.size() << "  " << next_x_vals.size() << std::endl;
+		   std::cout <<"The last value of s_sum and d_sum are " << last_s << " " << last_d << " " << end_path_s << " " << end_path_d << std::endl;
 		   
 		   
 		   
